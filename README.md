@@ -67,6 +67,10 @@ que tes joueurs tentent et qui sont refusées.
 |---|---|
 | `server.js` | Salons, manches, chrono, Socket.io |
 | `scoring.js` | Normalisation, reconnaissance floue, calcul de rareté |
+<<<<<<< HEAD
 | `questions.json` | 530 questions, ~8 830 réponses valides |
+=======
+| `questions.json` | 30 questions, ~1 370 réponses valides |
+>>>>>>> 0651caf9a2c21f85f93c9664b7e61ec453fe7fb0
 | `public/index.html` | Interface (accueil, salon, question, résultats, podium) |
 | `test/` | `npm test` : tests du scoring + simulation d'une partie à 3 joueurs |

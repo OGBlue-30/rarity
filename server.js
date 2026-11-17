@@ -7,7 +7,11 @@ const { Server } = require('socket.io');
 const { loadQuestions, scoreRound } = require('./scoring');
 
 const PORT = process.env.PORT || 3000;
+<<<<<<< HEAD
 const MIN_PLAYERS = Number(process.env.MIN_PLAYERS || 1);
+=======
+const MIN_PLAYERS = Number(process.env.MIN_PLAYERS || 2);
+>>>>>>> 0651caf9a2c21f85f93c9664b7e61ec453fe7fb0
 const REVEAL_MS = Number(process.env.REVEAL_MS || 12000);
 const MAX_PLAYERS = 12;
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sans I ni O (confusion avec 1 et 0)
