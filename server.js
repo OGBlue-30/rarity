@@ -1,29 +1,31 @@
+
 'use strict';
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
-const { loadQuestions, scoreRound } = require('./scoring');
-
+const { loadQuestions, scoreRound, match } = require('./scoring');
+const ai = require('./ai');
+ 
 const PORT = process.env.PORT || 3000;
 const MIN_PLAYERS = Number(process.env.MIN_PLAYERS || 1);
 const REVEAL_MS = Number(process.env.REVEAL_MS || 12000);
 const MAX_PLAYERS = 12;
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sans I ni O (confusion avec 1 et 0)
-
+ 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-
+ 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
-
+ 
 const QUESTIONS = loadQuestions(path.join(__dirname, 'questions.json'));
 const rooms = new Map();
-
+ 
 /* ---------- utilitaires ---------- */
-
+ 
 const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 14);
 const cleanAnswer = (s) => String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 60);
 const shuffle = (a) => {
@@ -34,7 +36,7 @@ const shuffle = (a) => {
   }
   return a;
 };
-
+ 
 function makeCode() {
   for (;;) {
     let c = '';
@@ -42,7 +44,7 @@ function makeCode() {
     if (!rooms.has(c)) return c;
   }
 }
-
+ 
 function addPlayer(room, pseudo, socket) {
   const p = {
     id: crypto.randomBytes(8).toString('hex'),
@@ -53,18 +55,18 @@ function addPlayer(room, pseudo, socket) {
   socket.join(room.code);
   return p;
 }
-
+ 
 function transferHost(room) {
   const list = [...room.players.values()];
   const next = list.find((p) => p.connected) || list[0];
   if (next) room.hostId = next.id;
 }
-
+ 
 function closeRoom(room) {
   clearTimeout(room.timer);
   rooms.delete(room.code);
 }
-
+ 
 function removePlayer(room, pid) {
   const p = room.players.get(pid);
   if (!p) return;
@@ -75,9 +77,9 @@ function removePlayer(room, pid) {
   if (room.phase === 'question') maybeEndEarly(room);
   broadcast(room);
 }
-
+ 
 /* ---------- état envoyé aux clients ---------- */
-
+ 
 function snapshot(room, pid) {
   const players = [...room.players.values()].map((p) => ({
     id: p.id, pseudo: p.pseudo, score: p.score, connected: p.connected,
@@ -96,6 +98,7 @@ function snapshot(room, pid) {
   if (room.phase === 'question') {
     s.endsAt = room.endsAt;
     s.myAnswer = room.answers.get(pid) || '';
+    s.judging = Boolean(room.ending); // l'IA vérifie les réponses
   }
   if (room.phase === 'reveal') {
     s.reveal = room.lastReveal;
@@ -103,6 +106,7 @@ function snapshot(room, pid) {
     s.lastRound = room.round + 1 >= room.settings.manches;
   }
   if (room.phase === 'final') {
+    s.history = room.history; // toutes les manches : question + réponses de chacun
     const sorted = [...room.players.values()].sort((a, b) => b.score - a.score);
     let rank = 0, prev = null;
     s.ranking = sorted.map((p, i) => {
@@ -112,15 +116,15 @@ function snapshot(room, pid) {
   }
   return s;
 }
-
+ 
 function broadcast(room) {
   for (const p of room.players.values()) {
     if (p.connected) io.to(p.socketId).emit('state', snapshot(room, p.id));
   }
 }
-
+ 
 /* ---------- déroulement d'une partie ---------- */
-
+ 
 function startRound(room) {
   clearTimeout(room.timer);
   room.phase = 'question';
@@ -130,19 +134,50 @@ function startRound(room) {
   room.timer = setTimeout(() => endRound(room), ms);
   broadcast(room);
 }
-
+ 
 function maybeEndEarly(room) {
   const connected = [...room.players.values()].filter((p) => p.connected);
   if (connected.length > 0 && connected.every((p) => room.answers.has(p.id))) endRound(room);
 }
-
-function endRound(room) {
-  if (room.phase !== 'question') return;
+ 
+// Fin de manche. Si des réponses sont absentes de la liste, l'IA peut les valider
+// (appel asynchrone, avec délai max). Pendant l'attente, `room.ending` bloque
+// les nouvelles réponses et les appels en double.
+async function endRound(room) {
+  if (room.phase !== 'question' || room.ending) return;
+  room.ending = true;
   clearTimeout(room.timer);
-  const q = QUESTIONS[room.questionIds[room.round]];
+  try {
+    const q = QUESTIONS[room.questionIds[room.round]];
+    const answers = new Map(room.answers);
+    let verdicts = null;
+ 
+    if (ai.enabled()) {
+      const pending = [];
+      for (const pid of room.players.keys()) {
+        const text = answers.get(pid);
+        if (text && !match(q, text)) pending.push({ pid, text });
+      }
+      if (pending.length) {
+        broadcast(room); // les clients affichent « vérification en cours »
+        verdicts = await ai.judge(q, pending);
+        if (!rooms.has(room.code)) return; // salon fermé pendant l'attente
+      }
+    }
+ 
+    room.ending = false;
+    finishRound(room, q, answers, verdicts);
+  } catch (err) {
+    console.error('[endRound]', err);
+    room.ending = false;
+    if (rooms.has(room.code) && room.phase === 'question') finishRound(room, QUESTIONS[room.questionIds[room.round]], new Map(room.answers), null);
+  }
+}
+ 
+function finishRound(room, q, answers, verdicts) {
   const ids = [...room.players.keys()];
-  const { rows, autres } = scoreRound(q, room.answers, ids);
-
+  const { rows, autres } = scoreRound(q, answers, ids, verdicts);
+ 
   for (const r of rows) {
     const p = room.players.get(r.pid);
     p.score += r.pts;
@@ -151,14 +186,15 @@ function endRound(room) {
     r.total = p.score;
   }
   rows.sort((a, b) => b.pts - a.pts || b.rarete - a.rarete);
-
+ 
   room.lastReveal = { rows, autres };
+  room.history.push({ round: room.round + 1, categorie: q.categorie, texte: q.texte, rows, autres });
   room.phase = 'reveal';
-  room.revealEndsAt = Date.now() + REVEAL_MS;
-  room.timer = setTimeout(() => nextRound(room), REVEAL_MS);
+  //room.revealEndsAt = Date.now() + REVEAL_MS;
+  //room.timer = setTimeout(() => nextRound(room), REVEAL_MS);
   broadcast(room);
 }
-
+ 
 function nextRound(room) {
   if (room.phase !== 'reveal') return;
   clearTimeout(room.timer);
@@ -170,9 +206,9 @@ function nextRound(room) {
     startRound(room);
   }
 }
-
+ 
 /* ---------- sockets ---------- */
-
+ 
 io.on('connection', (socket) => {
   const ctx = () => {
     const { code, pid } = socket.data || {};
@@ -181,7 +217,7 @@ io.on('connection', (socket) => {
     return room && player ? { room, player } : {};
   };
   const done = (ack, payload) => { if (typeof ack === 'function') ack(payload); };
-
+ 
   socket.on('create_room', (data, ack) => {
     const pseudo = cleanName(data && data.pseudo);
     if (pseudo.length < 2) return done(ack, { ok: false, error: 'Pseudo trop court (2 caractères minimum).' });
@@ -189,7 +225,7 @@ io.on('connection', (socket) => {
       code: makeCode(), hostId: null, settings: { manches: 5, temps: 30 },
       players: new Map(), phase: 'lobby', round: 0, questionIds: [],
       answers: new Map(), timer: null, endsAt: 0, revealEndsAt: 0, lastReveal: null,
-      touched: Date.now(),
+      touched: Date.now(), ending: false, history: [],
     };
     rooms.set(room.code, room);
     const p = addPlayer(room, pseudo, socket);
@@ -197,7 +233,7 @@ io.on('connection', (socket) => {
     done(ack, { ok: true, code: room.code, pid: p.id });
     broadcast(room);
   });
-
+ 
   socket.on('join_room', (data, ack) => {
     const code = String((data && data.code) || '').toUpperCase().trim();
     const pseudo = cleanName(data && data.pseudo);
@@ -213,7 +249,7 @@ io.on('connection', (socket) => {
     done(ack, { ok: true, code: room.code, pid: p.id });
     broadcast(room);
   });
-
+ 
   socket.on('reconnect_room', (data, ack) => {
     const room = rooms.get(String((data && data.code) || '').toUpperCase());
     const p = room && room.players.get(data && data.pid);
@@ -227,7 +263,7 @@ io.on('connection', (socket) => {
     done(ack, { ok: true });
     broadcast(room);
   });
-
+ 
   socket.on('update_settings', (data, ack) => {
     const { room, player } = ctx();
     if (!room || room.hostId !== player.id || room.phase !== 'lobby') return done(ack, { ok: false });
@@ -237,7 +273,7 @@ io.on('connection', (socket) => {
     done(ack, { ok: true });
     broadcast(room);
   });
-
+ 
   socket.on('start_game', (_data, ack) => {
     const { room, player } = ctx();
     if (!room || room.hostId !== player.id || room.phase !== 'lobby') return done(ack, { ok: false, error: 'Action impossible.' });
@@ -246,14 +282,15 @@ io.on('connection', (socket) => {
     for (const p of room.players.values()) p.score = 0;
     room.questionIds = shuffle(QUESTIONS.map((_, i) => i)).slice(0, room.settings.manches);
     room.round = 0;
+    room.history = [];
     room.touched = Date.now();
     done(ack, { ok: true });
     startRound(room);
   });
-
+ 
   socket.on('submit_answer', (data, ack) => {
     const { room, player } = ctx();
-    if (!room || room.phase !== 'question') return done(ack, { ok: false });
+    if (!room || room.phase !== 'question' || room.ending) return done(ack, { ok: false });
     const text = cleanAnswer(data && data.text);
     if (!text) return done(ack, { ok: false });
     room.answers.set(player.id, text);
@@ -265,22 +302,23 @@ io.on('connection', (socket) => {
       broadcast(room);
     }
   });
-
+ 
   socket.on('skip_reveal', () => {
     const { room, player } = ctx();
     if (room && room.hostId === player.id) nextRound(room);
   });
-
+ 
   socket.on('play_again', (_data, ack) => {
     const { room, player } = ctx();
     if (!room || room.hostId !== player.id || room.phase !== 'final') return done(ack, { ok: false });
     for (const p of room.players.values()) p.score = 0;
     room.phase = 'lobby';
     room.round = 0;
+    room.history = [];
     done(ack, { ok: true });
     broadcast(room);
   });
-
+ 
   socket.on('leave_room', () => {
     const { room, player } = ctx();
     if (!room) return;
@@ -288,7 +326,7 @@ io.on('connection', (socket) => {
     socket.data = {};
     removePlayer(room, player.id);
   });
-
+ 
   socket.on('disconnect', () => {
     const { room, player } = ctx();
     if (!room || player.socketId !== socket.id) return;
@@ -302,9 +340,9 @@ io.on('connection', (socket) => {
     if (rooms.has(room.code)) broadcast(room);
   });
 });
-
+ 
 /* ---------- ménage & démarrage ---------- */
-
+ 
 // Ménage : salons vides depuis plus de 10 minutes
 setInterval(() => {
   const now = Date.now();
@@ -313,7 +351,11 @@ setInterval(() => {
     if (!anyone && now - room.touched > 10 * 60 * 1000) closeRoom(room);
   }
 }, 60 * 1000).unref();
-
+ 
 server.listen(PORT, () => {
   console.log(`Rareté en ligne sur http://localhost:${PORT}  (${QUESTIONS.length} questions)`);
+  console.log(ai.enabled()
+    ? `IA : activée (modèles : ${ai.MODELS.join(' > ')})`
+    : 'IA : désactivée (variable OPENROUTER_API_KEY absente)');
 });
+ 

@@ -8284,23 +8284,7 @@
       "Marilyn Thornhill|65|thornhill"
     ]
   },
-  {
-    "id": 328,
-    "categorie": "Séries",
-    "texte": "Citez une série télévisée d'anthologie",
-    "r": [
-      "Black Mirror|98",
-      "True Detective|90",
-      "American Horror Story|90|ahs",
-      "Fargo|85",
-      "La Quatrième Dimension|82|the twilight zone",
-      "The White Lotus|80",
-      "Love, Death & Robots|78|love death and robots",
-      "American Crime Story|65",
-      "Room 104|45",
-      "Channel Zero|35"
-    ]
-  },
+ 
   {
     "id": 329,
     "categorie": "Séries",
@@ -10542,25 +10526,7 @@
       "Jeff Beck|65"
     ]
   },
-  {
-    "id": 434,
-    "categorie": "Musique",
-    "texte": "Citez un batteur célèbre de l'histoire du rock",
-    "r": [
-      "John Bonham|95|bonham;bonzo",
-      "Ringo Starr|95|starr",
-      "Phil Collins|92|collins",
-      "Dave Grohl|90|grohl",
-      "Neil Peart|85|peart",
-      "Keith Moon|85|moon",
-      "Travis Barker|80|barker",
-      "Lars Ulrich|80|ulrich",
-      "Stewart Copeland|75|copeland",
-      "Chad Smith|70|smith",
-      "Ginger Baker|68",
-      "Roger Taylor|65"
-    ]
-  },
+ 
   {
     "id": 435,
     "categorie": "Musique",
@@ -10709,23 +10675,7 @@
       "Bananarama|50"
     ]
   },
-  {
-    "id": 443,
-    "categorie": "Musique",
-    "texte": "Citez un artiste ou groupe de country célèbre",
-    "r": [
-      "Johnny Cash|98|cash",
-      "Dolly Parton|95|parton",
-      "Willie Nelson|85|nelson",
-      "Shania Twain|85|twain",
-      "Taylor Swift|80",
-      "Garth Brooks|75|brooks",
-      "Kenny Rogers|72|rogers",
-      "Luke Combs|65|combs",
-      "Hank Williams|65|williams",
-      "Carrie Underwood|60"
-    ]
-  },
+  
   {
     "id": 444,
     "categorie": "Musique",

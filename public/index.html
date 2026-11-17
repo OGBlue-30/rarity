@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -46,7 +47,7 @@
   .sep{display:flex; align-items:center; gap:12px; color:var(--muted); margin:18px 0; font-size:.85rem}
   .sep::before,.sep::after{content:""; flex:1; height:1px; background:#3a3570}
   .stack > * + *{margin-top:12px}
-
+ 
   /* salon */
   .code-big{font-size:3.4rem; font-weight:900; letter-spacing:.2em; text-align:center; color:var(--accent); margin:.1em 0; padding-left:.2em}
   .hint{color:var(--muted); text-align:center; font-size:.9rem; margin:0}
@@ -59,7 +60,7 @@
   .seg button.on{background:var(--violet); color:#fff}
   .seg button:disabled{opacity:1; cursor:default}
   .seg.locked button:not(.on){opacity:.4}
-
+ 
   /* question */
   .top{display:flex; justify-content:space-between; color:var(--muted); font-size:.9rem; margin:6px 2px 10px}
   .bar{height:10px; background:var(--card2); border-radius:999px; overflow:hidden}
@@ -70,7 +71,7 @@
   .q{font-size:1.9rem; line-height:1.2; font-weight:800; margin:0 0 22px}
   .status{min-height:1.4em; text-align:center; color:var(--muted); margin:12px 0 0; font-size:.95rem}
   .status.ok{color:var(--good); font-weight:700}
-
+ 
   /* révélation */
   .res{display:grid; grid-template-columns:1fr auto; gap:4px 12px; align-items:center;
        background:var(--card); border-radius:16px; padding:12px 14px; margin-bottom:8px; border-left:5px solid #4a4585;
@@ -92,7 +93,17 @@
   .score-line{display:flex; justify-content:space-between; padding:8px 4px; border-bottom:1px solid #332f66}
   .score-line:last-child{border:0}
   .score-line.me b{color:var(--accent)}
-
+ 
+  /* revue de la partie */
+  details.rev{background:var(--card2); border-radius:14px; margin-bottom:8px; padding:0 12px}
+  details.rev[open]{padding-bottom:10px}
+  details.rev summary{cursor:pointer; padding:12px 0; font-weight:700; list-style:none}
+  details.rev summary::-webkit-details-marker{display:none}
+  details.rev summary::before{content:"▸ "; color:var(--accent)}
+  details.rev[open] summary::before{content:"▾ "}
+  details.rev summary small{display:block; margin:0 0 2px 1em; color:var(--muted); font-weight:600; font-size:.75rem; letter-spacing:.06em; text-transform:uppercase}
+  details.rev .res{background:var(--card); animation:none}
+ 
   /* podium */
   .podium{display:flex; align-items:flex-end; justify-content:center; gap:10px; margin:26px 0 18px; min-height:230px}
   .pod{flex:1; max-width:150px; text-align:center}
@@ -104,7 +115,7 @@
   .pod.p2 .blk{height:112px; background:linear-gradient(#d9deea,#9aa3b8)}
   .pod.p3 .blk{height:84px; background:linear-gradient(#e0a070,#a8672f)}
   @keyframes rise{from{transform:scaleY(.05); transform-origin:bottom}to{transform:scaleY(1); transform-origin:bottom}}
-
+ 
   .toast{position:fixed; left:50%; bottom:max(24px,env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(30px);
          background:#000c; color:#fff; padding:12px 18px; border-radius:14px; opacity:0; transition:.25s; pointer-events:none; max-width:90vw; text-align:center; z-index:9}
   .toast.show{opacity:1; transform:translateX(-50%)}
@@ -116,7 +127,7 @@
 <body>
 <div class="conn" id="conn" hidden>Connexion perdue… reconnexion</div>
 <main class="app">
-
+ 
   <!-- ACCUEIL -->
   <section class="screen" id="s-home">
     <h1>Rare<span>té</span></h1>
@@ -135,7 +146,7 @@
       <button class="sec" id="btn-join">Rejoindre</button>
     </div>
   </section>
-
+ 
   <!-- SALON -->
   <section class="screen" id="s-lobby" hidden>
     <p class="hint" style="margin-top:22px">Code du salon</p>
@@ -167,7 +178,7 @@
     <p class="hint" id="l-wait" style="margin-top:12px" hidden>En attente du chef de salon…</p>
     <button class="ghost" id="btn-leave1" style="margin-top:8px">Quitter le salon</button>
   </section>
-
+ 
   <!-- QUESTION -->
   <section class="screen" id="s-question" hidden>
     <div class="top"><span id="q-round">Manche 1/5</span><span class="timer" id="q-time">30</span></div>
@@ -180,7 +191,7 @@
     </form>
     <p class="status" id="q-status"></p>
   </section>
-
+ 
   <!-- RÉSULTATS DE MANCHE -->
   <section class="screen" id="s-reveal" hidden>
     <div class="top"><span id="r-round">Manche 1/5</span><span class="timer" id="r-time"></span></div>
@@ -190,29 +201,30 @@
     <div class="card"><label>Classement</label><div id="r-board"></div></div>
     <button id="btn-skip">Question suivante</button>
   </section>
-
+ 
   <!-- FIN -->
   <section class="screen" id="s-final" hidden>
     <h1 style="font-size:2.2rem">Podium</h1>
     <div class="podium" id="f-podium"></div>
     <div class="card"><label>Classement final</label><div id="f-board"></div></div>
+    <div class="card" id="f-review-card"><label>Revoir la partie</label><div id="f-review"></div></div>
     <div class="stack">
       <button id="btn-again">Rejouer avec le même salon</button>
       <button class="ghost" id="btn-leave2">Quitter</button>
     </div>
   </section>
-
+ 
 </main>
 <div class="toast" id="toast"></div>
-
+ 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 (() => {
   const socket = io();
   const $ = (id) => document.getElementById(id);
   const SESSION = 'rarete_session', PSEUDO = 'rarete_pseudo';
-  let S = null, offset = 0, roundKey = '', revealKey = '';
-
+  let S = null, offset = 0, roundKey = '', revealKey = '', reviewKey = '';
+ 
   const store = {
     get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
     set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -220,25 +232,25 @@
   };
   const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const show = (name) => document.querySelectorAll('.screen').forEach((s) => { s.hidden = s.id !== 's-' + name; });
-
+ 
   let toastTimer;
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
   }
-
+ 
   /* ----- accueil ----- */
   $('pseudo').value = store.get(PSEUDO) || '';
   const urlCode = new URLSearchParams(location.search).get('code');
   if (urlCode) $('code').value = urlCode.toUpperCase().slice(0, 4);
   $('code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
-
+ 
   function enter(res) {
     if (!res.ok) return toast(res.error || 'Impossible de continuer.');
     store.set(SESSION, { code: res.code, pid: res.pid });
   }
   const pseudoValue = () => { const p = $('pseudo').value.trim(); store.set(PSEUDO, p); return p; };
-
+ 
   $('btn-create').onclick = () => socket.emit('create_room', { pseudo: pseudoValue() }, enter);
   $('btn-join').onclick = () => {
     const code = $('code').value.trim();
@@ -246,16 +258,16 @@
     socket.emit('join_room', { code, pseudo: pseudoValue() }, enter);
   };
   $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-join').click(); });
-
+ 
   function leave() {
     socket.emit('leave_room');
-    store.del(SESSION); S = null; roundKey = ''; revealKey = '';
+    store.del(SESSION); S = null; roundKey = ''; revealKey = ''; reviewKey = '';
     history.replaceState(null, '', location.pathname);
     show('home');
   }
   $('btn-leave1').onclick = leave;
   $('btn-leave2').onclick = leave;
-
+ 
   /* ----- connexion / reconnexion ----- */
   socket.on('connect', () => {
     $('conn').hidden = true;
@@ -263,16 +275,16 @@
     if (ses) socket.emit('reconnect_room', ses, (r) => { if (!r.ok) { store.del(SESSION); S = null; show('home'); } });
   });
   socket.on('disconnect', () => { $('conn').hidden = false; });
-
+ 
   socket.on('state', (st) => {
     S = st;
     offset = st.serverNow - Date.now();
     render();
   });
-
+ 
   /* ----- salon ----- */
   const isHost = () => S && S.hostId === S.you;
-
+ 
   function renderLobby() {
     $('l-code').textContent = S.code;
     $('l-count').textContent = S.players.length;
@@ -310,7 +322,7 @@
       else { await navigator.clipboard.writeText(url); toast('Lien copié !'); }
     } catch { /* annulé */ }
   };
-
+ 
   /* ----- question ----- */
   function renderQuestion() {
     const key = S.code + ':' + S.round;
@@ -324,7 +336,11 @@
     $('q-text').textContent = S.question.texte;
     const done = S.players.filter((p) => p.answered).length;
     const st = $('q-status');
-    if (S.myAnswer) {
+    $('q-input').disabled = $('q-send').disabled = Boolean(S.judging);
+    if (S.judging) {
+      st.className = 'status';
+      st.textContent = '🔍 Vérification des réponses…';
+    } else if (S.myAnswer) {
       st.className = 'status ok';
       st.textContent = `✓ Réponse envoyée (${done}/${S.players.length}) — tu peux la modifier`;
     } else {
@@ -340,7 +356,7 @@
     if (!text) return;
     socket.emit('submit_answer', { text }, (r) => { if (!r.ok) toast('Trop tard !'); });
   });
-
+ 
   /* ----- résultats ----- */
   const STATUS = {
     unique: () => ['Unique !', 'good'],
@@ -349,7 +365,7 @@
     inconnue: () => ['Non reconnue', 'bad'],
     none: () => ['Pas de réponse', ''],
   };
-
+ 
   function boardInto(el, list) {
     el.replaceChildren();
     [...list].sort((a, b) => b.score - a.score).forEach((p, i) => {
@@ -358,7 +374,22 @@
       el.appendChild(line);
     });
   }
-
+ 
+  // une ligne « joueur / réponse / points » (résultats de manche et revue finale)
+  function buildRow(r, delay) {
+    const [label, tone] = STATUS[r.status](r.groupSize);
+    const row = mk('div', 'res ' + r.status);
+    if (delay) row.style.animationDelay = delay + 's';
+    const who = mk('div', 'who', r.pseudo + (r.id === S.you ? ' (toi)' : ''));
+    who.appendChild(mk('span', 'badge ' + tone, label));
+    let ans = r.text ? `« ${r.text} »` : '—';
+    if (r.canonical && r.canonical.toLowerCase() !== r.text.toLowerCase()) ans += `  →  ${r.canonical}`;
+    const pts = mk('div', 'pts', r.pts > 0 ? '+' + r.pts : '0');
+    if (r.rarete) pts.appendChild(mk('small', '', `rareté ${r.rarete}`));
+    row.append(who, pts, mk('div', 'ans', ans));
+    return row;
+  }
+ 
   function renderReveal() {
     $('r-round').textContent = `Manche ${S.round}/${S.totalRounds}`;
     $('r-q').textContent = S.question.texte;
@@ -366,19 +397,7 @@
     if (key !== revealKey) {
       revealKey = key;
       const box = $('r-rows'); box.replaceChildren();
-      S.reveal.rows.forEach((r, i) => {
-        const [label, tone] = STATUS[r.status](r.groupSize);
-        const row = mk('div', 'res ' + r.status);
-        row.style.animationDelay = (i * 0.12) + 's';
-        const who = mk('div', 'who', r.pseudo + (r.id === S.you ? ' (toi)' : ''));
-        who.appendChild(mk('span', 'badge ' + tone, label));
-        let ans = r.text ? `« ${r.text} »` : '—';
-        if (r.canonical && r.canonical.toLowerCase() !== r.text.toLowerCase()) ans += `  →  ${r.canonical}`;
-        const pts = mk('div', 'pts', r.pts > 0 ? '+' + r.pts : '0');
-        if (r.rarete) pts.appendChild(mk('small', '', `rareté ${r.rarete}`));
-        row.append(who, pts, mk('div', 'ans', ans));
-        box.appendChild(row);
-      });
+      S.reveal.rows.forEach((r, i) => box.appendChild(buildRow(r, i * 0.12)));
       const also = $('r-also');
       also.replaceChildren();
       if (S.reveal.autres.length) {
@@ -395,7 +414,7 @@
     tick();
   }
   $('btn-skip').onclick = () => socket.emit('skip_reveal');
-
+ 
   /* ----- fin ----- */
   function renderFinal() {
     const pod = $('f-podium'); pod.replaceChildren();
@@ -416,18 +435,44 @@
       b.appendChild(line);
     });
     $('btn-again').hidden = !isHost();
+ 
+    const hist = S.history || [];
+    $('f-review-card').hidden = hist.length === 0;
+    const rkey = S.code + ':' + hist.length;
+    if (rkey !== reviewKey) {
+      reviewKey = rkey;
+      const box = $('f-review'); box.replaceChildren();
+      hist.forEach((h) => {
+        const det = mk('details', 'rev');
+        const sum = mk('summary');
+        sum.append(mk('small', '', `Manche ${h.round}${h.categorie ? ' · ' + h.categorie : ''}`), h.texte);
+        det.appendChild(sum);
+        h.rows.forEach((r) => det.appendChild(buildRow(r)));
+        if (h.autres && h.autres.length) {
+          const also = mk('p', 'also');
+          also.append('Personne n’a trouvé : ');
+          h.autres.forEach((a, i) => {
+            if (i) also.append(', ');
+            also.append(mk('b', '', a.nom), ` (${a.pts} pts)`);
+          });
+          det.appendChild(also);
+        }
+        box.appendChild(det);
+      });
+    }
   }
   $('btn-again').onclick = () => socket.emit('play_again');
-
+ 
   /* ----- aiguillage + chrono ----- */
   function render() {
     if (!S) return show('home');
     if (S.phase !== 'question') roundKey = '';
     if (S.phase !== 'reveal') revealKey = '';
+    if (S.phase !== 'final') reviewKey = '';
     show(S.phase);
     ({ lobby: renderLobby, question: renderQuestion, reveal: renderReveal, final: renderFinal })[S.phase]();
   }
-
+ 
   function tick() {
     if (!S) return;
     const now = Date.now() + offset;
@@ -440,7 +485,7 @@
       bar.className = pct < 20 ? 'low' : pct < 50 ? 'mid' : '';
     } else if (S.phase === 'reveal') {
       const left = Math.max(0, S.revealEndsAt - now);
-      $('r-time').textContent = 'Suite dans ' + Math.ceil(left / 1000) + ' s';
+      //$('r-time').textContent = 'Suite dans ' + Math.ceil(left / 1000) + ' s';
     }
   }
   setInterval(tick, 250);
@@ -448,3 +493,4 @@
 </script>
 </body>
 </html>
+ 
