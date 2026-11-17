@@ -140,12 +140,8 @@
   <section class="screen" id="s-lobby" hidden>
     <p class="hint" style="margin-top:22px">Code du salon</p>
     <div class="code-big" id="l-code">----</div>
-<<<<<<< HEAD
     <p class="hint" id="l-hint-join">Les autres joueurs entrent ce code sur cette même page.</p>
     <p class="hint" id="l-hint-solo" hidden style="color:var(--accent);font-weight:700">🎮 Mode solo — tu joues seul !</p>
-=======
-    <p class="hint">Les autres joueurs entrent ce code sur cette même page.</p>
->>>>>>> 0651caf9a2c21f85f93c9664b7e61ec453fe7fb0
     <div class="row" style="margin:14px 0">
       <button class="sec" id="btn-share">Partager le lien</button>
     </div>
@@ -280,12 +276,9 @@
   function renderLobby() {
     $('l-code').textContent = S.code;
     $('l-count').textContent = S.players.length;
-<<<<<<< HEAD
     const solo = S.players.length === 1;
     $('l-hint-join').hidden = solo;
     $('l-hint-solo').hidden = !solo;
-=======
->>>>>>> 0651caf9a2c21f85f93c9664b7e61ec453fe7fb0
     const box = $('l-players'); box.replaceChildren();
     for (const p of S.players) {
       const c = mk('span', 'chip' + (p.id === S.you ? ' me' : '') + (p.connected ? '' : ' off'),
